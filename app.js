@@ -87,18 +87,25 @@ function renderOverview(data) {
   chart.setAttribute('aria-label', data.activity.map((item) => `${item.date}: ${item.total} reports`).join(', '));
   chart.replaceChildren(...data.activity.map((item) => {
     const column = element('div', undefined, 'bar-column');
-    const bar = element('div', item.total || '', 'bar');
-    bar.style.setProperty('--height', `${item.total / max * 76}%`);
+    const track = element('div', undefined, 'bar-track');
+    const bar = element('div', undefined, 'bar');
+    bar.style.setProperty('--height', `${item.total / max * 82}%`);
+    if (item.total) bar.append(element('span', item.total, 'bar-value'));
+    track.append(bar);
     const label = day.format(new Date(item.date));
     column.title = `${label}: ${item.total} reports`;
-    column.append(bar, element('span', label, 'bar-day'));
+    column.append(track, element('span', label, 'bar-day'));
     return column;
   }));
   const counts = new Map(data.sources.map((item) => [item.source, item.total]));
   $('#sources').replaceChildren(...Object.entries(sources).filter(([key]) => key !== 'instagram' || counts.has(key)).map(([key, name]) => {
     const button = element('button', undefined, 'source-row');
-    button.append(element('span', name[0], `source-icon ${key}`), element('strong', name),
-      element('span', (counts.get(key) ?? 0).toLocaleString(), 'source-count'));
+    const icon = element('span', name[0], `source-icon ${key}`);
+    const arrow = element('span', '›', 'source-arrow');
+    icon.setAttribute('aria-hidden', 'true');
+    arrow.setAttribute('aria-hidden', 'true');
+    button.append(icon, element('strong', name),
+      element('span', (counts.get(key) ?? 0).toLocaleString(), 'source-count'), arrow);
     button.addEventListener('click', () => setView('inbox', key));
     return button;
   }));

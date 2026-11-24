@@ -1,26 +1,44 @@
 <!doctype html>
-<html lang="en" data-api-origin="https://6embwgkgqd.apps.bot-hosting.cloud">
+<html lang="en" data-theme="dark" data-api-origin="https://6embwgkgqd.apps.bot-hosting.cloud">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Feedback Console</title>
+  <title>AYO Feedback</title>
+  <script src="./theme.js"></script>
   <link rel="stylesheet" href="./style.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <main class="sign-in" id="sign-in" hidden>
-    <form id="sign-in-form" class="login-card">
-      <span class="brand-mark">F</span>
-      <h1>Feedback Console</h1>
-      <label for="password">Dashboard password</label>
-      <input id="password" type="password" required autocomplete="current-password">
-      <button class="primary">Sign in</button>
-      <p id="login-error" class="error" role="alert" hidden></p>
-    </form>
+    <header class="sign-in-top">
+      <div class="brand"><span class="brand-mark">AYO</span><span>Feedback</span></div>
+      <label class="theme-control">
+        <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
+        <select data-theme-picker aria-label="Color theme">
+          <option value="dark">Nebula</option><option value="light">Pearl</option>
+          <option value="grey">Grey</option><option value="aero">Frutiger Aero</option>
+        </select>
+      </label>
+    </header>
+    <div class="sign-in-layout">
+      <section class="sign-in-intro" aria-labelledby="sign-in-title">
+        <div class="sign-in-copy">
+          <h1 id="sign-in-title">Feedback<br>Console</h1>
+          <p>Review product feedback from Discord and Supabase.</p>
+        </div>
+      </section>
+      <form id="sign-in-form" class="login-card">
+        <h2>Sign in</h2>
+        <label for="password">Dashboard password</label>
+        <input id="password" type="password" required autocomplete="current-password">
+        <button class="primary">Continue</button>
+        <p id="login-error" class="error" role="alert" hidden></p>
+      </form>
+    </div>
   </main>
   <div id="workspace" class="workspace" hidden>
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">F</span><span>Feedback<br><small>Console</small></span></div>
+      <div class="brand"><span class="brand-mark">AYO</span><span>Feedback<br><small>Console</small></span></div>
       <nav aria-label="Dashboard">
         <button class="nav-item active" data-view="overview" aria-current="page"><span aria-hidden="true">⊞</span> Overview</button>
         <button class="nav-item" data-view="inbox"><span aria-hidden="true">≡</span> Feedback inbox</button>
@@ -30,8 +48,17 @@
     </aside>
     <main class="main">
       <header class="topbar">
-        <span>Workspace <span class="separator">/</span> <strong id="breadcrumb">Overview</strong></span>
-        <span id="mode" class="mode"><i></i><span>Live workspace</span></span>
+        <span class="breadcrumb">Workspace <span class="separator">/</span> <strong id="breadcrumb">Overview</strong></span>
+        <div class="topbar-actions">
+          <span id="mode" class="mode"><i aria-hidden="true"></i><span>Live workspace</span></span>
+          <label class="theme-control">
+            <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
+            <select data-theme-picker aria-label="Color theme">
+              <option value="dark">Nebula</option><option value="light">Pearl</option>
+              <option value="grey">Grey</option><option value="aero">Frutiger Aero</option>
+            </select>
+          </label>
+        </div>
       </header>
       <div class="content">
         <div class="heading">
@@ -48,11 +75,11 @@
           </section>
           <div class="analytics">
             <section class="panel activity">
-              <header class="panel-heading"><div><h2>Report activity</h2><p>Reports received over the last 7 days</p></div><span class="period">Last 7 days</span></header>
+              <header class="panel-heading"><h2>Report activity</h2><span class="period">Last 7 days</span></header>
               <div class="plot" id="activity-chart" role="img" aria-label="Reports received over the last 7 days"></div>
             </section>
             <section class="panel sources">
-              <header class="panel-heading"><div><h2>Feedback sources</h2><p>Reports by channel</p></div></header>
+              <header class="panel-heading"><h2>Feedback sources</h2></header>
               <div id="sources" class="source-list"></div>
             </section>
           </div>
@@ -87,7 +114,7 @@
       </div>
     </main>
   </div>
-  <dialog id="detail">
+  <dialog id="detail" aria-labelledby="detail-title">
     <header class="detail-head"><div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2></div><button class="outline" id="detail-close" aria-label="Close report">×</button></header>
     <div id="detail-body"></div>
     <form id="promote-form" class="promote-form" hidden>
