@@ -35,7 +35,7 @@
       </header>
       <div class="content">
         <div class="heading">
-          <div><h1 id="page-title">Feedback overview</h1><p id="page-subtitle">Track incoming reports from Discord, Instagram, and Supabase.</p></div>
+          <div><h1 id="page-title">Feedback overview</h1><p id="page-subtitle">Track incoming reports from Discord and Supabase.</p></div>
           <button class="outline" id="refresh"><span aria-hidden="true">⟳</span> Refresh</button>
         </div>
         <p id="workspace-error" class="error" role="alert" hidden></p>
@@ -61,8 +61,22 @@
           <header class="panel-heading"><div><h2 id="inbox-title">Recent feedback</h2><p id="result-count" aria-live="polite"></p></div></header>
           <div class="filters">
             <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" aria-label="Search feedback" placeholder="Search feedback…"></label>
-            <select id="source-filter" aria-label="Source"><option value="">All sources</option><option value="discord">Discord</option><option value="instagram">Instagram DM</option><option value="supabase">Supabase form</option></select>
-            <select id="kind-filter" aria-label="Classification"><option value="">All classifications</option><option value="app_bug">App bug</option><option value="supabase_bug">Supabase bug</option><option value="bug">Bug</option><option value="feature">Feature request</option><option value="feedback">General feedback</option><option value="review">Needs review</option><option value="pending">Pending</option><option value="other">Other</option></select>
+            <select id="source-filter" aria-label="Source"><option value="">All sources</option><option value="discord">Discord</option><option value="supabase">Supabase form</option><option value="instagram">Instagram DM (archived)</option></select>
+            <select id="kind-filter" aria-label="Classification">
+              <option value="">All classifications</option>
+              <option value="major_bug">Major bugs</option>
+              <option value="minor_bug">Minor bugs</option>
+              <option value="suggestion">Suggestions</option>
+              <option value="feedback">General feedback</option>
+              <option value="review">Needs review</option>
+              <option value="pending">Pending</option>
+              <option value="other">Other</option>
+              <optgroup label="Bug types">
+                <option value="app_bug">App bugs</option>
+                <option value="supabase_bug">Supabase bugs</option>
+                <option value="bug">Bugs with unclear component</option>
+              </optgroup>
+            </select>
             <select id="status-filter" aria-label="Status"><option value="">All statuses</option><option value="open">Open</option><option value="resolved">Resolved</option></select>
           </div>
           <div class="table-wrap">
@@ -76,7 +90,20 @@
   <dialog id="detail">
     <header class="detail-head"><div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2></div><button class="outline" id="detail-close" aria-label="Close report">×</button></header>
     <div id="detail-body"></div>
-    <footer class="detail-actions"><p id="detail-error" class="error" role="alert" hidden></p><button id="detail-status" class="primary" hidden></button></footer>
+    <form id="promote-form" class="promote-form" hidden>
+      <label for="promote-summary">Describe the failure and add any staff findings</label>
+      <textarea id="promote-summary" required maxlength="700" rows="3" dir="auto"></textarea>
+      <div class="promote-fields">
+        <label for="promote-area">Area
+          <select id="promote-area"><option value="qa">QA triage</option><option value="desktop">Desktop app</option><option value="backend">Backend/Supabase</option><option value="billing">Billing/account</option></select>
+        </label>
+        <label for="promote-priority">Priority
+          <select id="promote-priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent (staff-confirmed outage or data loss)</option></select>
+        </label>
+      </div>
+      <button id="detail-promote" class="primary">Promote to issue</button>
+    </form>
+    <footer class="detail-actions"><p id="detail-error" class="error" role="alert" hidden></p><button id="detail-retry" class="outline" hidden>Retry processing</button><button id="detail-status" class="primary" hidden></button></footer>
   </dialog>
 </body>
 </html>

@@ -1,11 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
-const sources = { discord: 'Discord', instagram: 'Instagram DM', supabase: 'Supabase form' };
+const sources = { discord: 'Discord', supabase: 'Supabase form', instagram: 'Instagram DM (archived)' };
 const kinds = {
+  major_bug: 'Major bug', minor_bug: 'Minor bug', suggestion: 'Suggestion',
   app_bug: 'App bug', supabase_bug: 'Supabase bug', bug: 'Bug',
   feature: 'Feature request', feedback: 'General feedback', review: 'Needs review', pending: 'Pending', other: 'Other',
 };
 const views = {
-  overview: ['Overview', 'Feedback overview', 'Track incoming reports from Discord, Instagram, and Supabase.', 'Recent feedback'],
+  overview: ['Overview', 'Feedback overview', 'Track incoming reports from Discord and Supabase.', 'Recent feedback'],
   inbox: ['Feedback inbox', 'Feedback inbox', 'Search, review, and resolve feedback from all sources.', 'All feedback'],
   linear: ['Linear issues', 'Linear issues', 'Review feedback that has been sent to your Linear workspace.', 'Linked reports'],
 };
@@ -94,7 +95,7 @@ function renderOverview(data) {
     return column;
   }));
   const counts = new Map(data.sources.map((item) => [item.source, item.total]));
-  $('#sources').replaceChildren(...Object.entries(sources).map(([key, name]) => {
+  $('#sources').replaceChildren(...Object.entries(sources).filter(([key]) => key !== 'instagram' || counts.has(key)).map(([key, name]) => {
     const button = element('button', undefined, 'source-row');
     button.append(element('span', name[0], `source-icon ${key}`), element('strong', name),
       element('span', (counts.get(key) ?? 0).toLocaleString(), 'source-count'));
@@ -130,7 +131,7 @@ function renderReports({ reports, total, page, pageSize }) {
     open.addEventListener('click', () => openReport(report.id));
     const reportCell = cell(open);
     reportCell.append(element('span', `#${report.id}`, 'report-id'));
-    row.append(reportCell, cell(sources[report.source] ?? report.source), cell(kindPill(report.kind)),
+    row.append(reportCell, cell(sources[report.source] ?? report.source), cell(kindPill(report.classification ?? report.kind)),
       cell(statusPill(report.status)), cell(linearLink(report) ?? '—'), cell(date.format(report.created_at)));
     return row;
   }));
@@ -189,6 +190,9 @@ async function openReport(id) {
   $('#detail-title').textContent = 'Feedback report';
   $('#detail-body').textContent = 'Loading report…';
   $('#detail-status').hidden = true;
+  $('#detail-retry').hidden = true;
+  $('#promote-form').hidden = true;
+  $('#promote-form').reset();
   showError('#detail-error');
   if (!detail.open) detail.showModal();
   try {
@@ -205,23 +209,34 @@ function renderDetail(report) {
   state.detail = report;
   $('#detail-title').textContent = report.title ?? 'Feedback report';
   const meta = element('div', undefined, 'detail-meta');
-  meta.append(sources[report.source], statusPill(report.status), kindPill(report.kind ?? (report.stage ? 'pending' : report.category)), date.format(report.created_at));
+  const classification = report.classification ?? report.kind ?? (report.stage ? 'pending' : report.category);
+  meta.append(sources[report.source], statusPill(report.status), kindPill(classification), date.format(report.created_at));
   const section = (label, content) => {
     const part = element('section', undefined, 'detail-section');
-    part.append(element('h3', label), element('p', content));
+    const text = element('p', content);
+    text.dir = 'auto';
+    part.append(element('h3', label), text);
     return part;
   };
+  const triage = report.triageLabels;
   const content = [meta];
   if (report.summary) content.push(section('Summary', report.summary));
+  if (triage?.decision) content.push(section(triage.decision, report.rationale));
+  if (report.evidence) content.push(section('Evidence from the report', report.evidence));
+  if (triage?.impact) content.push(section('Reported impact', triage.impact));
+  if (triage?.area && triage.priority) content.push(section('Routing and priority', `${triage.area} · ${triage.priority}`));
   content.push(section('Original report', report.message));
   if (report.category) content.push(section('Submitted as', kinds[report.category] ?? report.category));
   const link = linearLink(report);
   if (link) content.push(link);
-  else if (report.stage === 'linear') content.push(section('Linear', report.exhausted ? 'Delivery failed. Retry from Discord with /feedback triage.' : 'Queued for delivery.'));
-  else if (report.stage === 'classify' && report.exhausted) content.push(section('Classification', 'Processing failed. Retry from Discord with /feedback triage.'));
+  else if (report.stage === 'linear') content.push(section('Linear', report.exhausted ? 'Delivery failed.' : 'Queued for delivery.'));
+  else if (report.stage === 'classify') content.push(section('Classification', report.exhausted ? 'Needs staff review.' : 'Queued for classification.'));
+  if (report.error) content.push(section('Processing error', report.error));
   $('#detail-body').replaceChildren(...content);
   $('#detail-status').textContent = report.status === 'open' ? 'Mark resolved' : 'Reopen report';
   $('#detail-status').hidden = false;
+  $('#detail-retry').hidden = !report.canRetry;
+  $('#promote-form').hidden = !report.canPromote;
 }
 
 async function refresh() {
@@ -279,20 +294,30 @@ for (const id of ['#source-filter', '#kind-filter', '#status-filter']) {
 $('#previous').addEventListener('click', () => { state.page -= 1; reloadReports(); });
 $('#next').addEventListener('click', () => { state.page += 1; reloadReports(); });
 $('#detail-close').addEventListener('click', () => detail.close());
-$('#detail-status').addEventListener('click', async () => {
-  const button = $('#detail-status');
-  button.disabled = true;
+async function updateReport(data) {
+  const { id } = state.detail;
+  const buttons = ['#detail-status', '#detail-retry', '#detail-promote'].map($);
+  for (const button of buttons) button.disabled = true;
   showError('#detail-error');
   try {
-    const { id, status } = state.detail;
-    const report = await api(`reports/${id}`, 'PATCH', { status: status === 'open' ? 'resolved' : 'open' });
+    const report = await api(`reports/${id}`, 'PATCH', data);
     if (detail.open && state.detail?.id === id) renderDetail(report);
     await refresh();
   } catch (error) {
-    showError('#detail-error', error.message);
+    if (detail.open && state.detail?.id === id) showError('#detail-error', error.message);
   } finally {
-    button.disabled = false;
+    for (const button of buttons) button.disabled = false;
   }
+}
+
+$('#detail-status').addEventListener('click', () => {
+  updateReport({ status: state.detail.status === 'open' ? 'resolved' : 'open' });
+});
+$('#detail-retry').addEventListener('click', () => updateReport({ action: 'retry' }));
+$('#promote-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  updateReport({ action: 'promote', summary: $('#promote-summary').value,
+    area: $('#promote-area').value, priority: $('#promote-priority').value });
 });
 
 start().catch((error) => {
