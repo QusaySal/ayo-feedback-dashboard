@@ -5,6 +5,9 @@ const kinds = {
   app_bug: 'App bug', supabase_bug: 'Supabase bug', bug: 'Bug',
   feature: 'Feature request', feedback: 'General feedback', review: 'Needs review', pending: 'Pending', other: 'Other',
 };
+const reviewLabels = {
+  possible_duplicate: 'Possible duplicate', needs_review: 'Ayman review', confirmed_duplicate: 'Duplicate',
+};
 const views = {
   overview: ['Overview', 'Feedback overview', 'Track incoming reports from Discord and Supabase.', 'Recent feedback'],
   inbox: ['Feedback inbox', 'Feedback inbox', 'Search, review, and resolve feedback from all sources.', 'All feedback'],
@@ -12,8 +15,10 @@ const views = {
 };
 const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
 const date = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const state = { view: 'overview', page: 1, detail: null, request: 0, filterTimer: null };
+const state = { view: 'overview', page: 1, detail: null, request: 0, filterTimer: null, deliveryTimer: null };
 const detail = $('#detail');
+const editForm = $('#edit-form');
+const destinationLabels = { discord: 'Discord', linear: 'Linear', both: 'Discord and Linear' };
 const apiOrigin = document.documentElement.dataset.apiOrigin ?? '';
 let sessionToken;
 
@@ -74,7 +79,7 @@ function linearLink(report) {
 }
 
 const kindPill = (kind) => element('span', kinds[kind] ?? 'Other', `pill ${kind ?? 'other'}`);
-const statusPill = (status) => element('span', status === 'resolved' ? 'Resolved' : 'Open', `pill ${status}`);
+const statusPill = (status, review) => element('span', reviewLabels[review] ?? (status === 'resolved' ? 'Resolved' : 'Open'), `pill ${review ?? status}`);
 
 function renderOverview(data) {
   $('#sign-out').hidden = data.demo;
@@ -139,7 +144,7 @@ function renderReports({ reports, total, page, pageSize }) {
     const reportCell = cell(open);
     reportCell.append(element('span', `#${report.id}`, 'report-id'));
     row.append(reportCell, cell(sources[report.source] ?? report.source), cell(kindPill(report.classification ?? report.kind)),
-      cell(statusPill(report.status)), cell(linearLink(report) ?? '—'), cell(date.format(report.created_at)));
+      cell(statusPill(report.status, report.review_state)), cell(linearLink(report) ?? '—'), cell(date.format(report.created_at)));
     return row;
   }));
 }
@@ -192,15 +197,19 @@ function setView(view, source = '') {
 }
 
 async function openReport(id) {
+  clearTimeout(state.deliveryTimer);
   state.detail = null;
   $('#detail-id').textContent = `Feedback #${id}`;
   $('#detail-title').textContent = 'Feedback report';
   $('#detail-body').textContent = 'Loading report…';
   $('#detail-status').hidden = true;
   $('#detail-retry').hidden = true;
-  $('#promote-form').hidden = true;
-  $('#promote-form').reset();
+  $('#detail-edit').hidden = true;
+  closeEditor();
+  $('#duplicate-form').hidden = true;
+  $('#duplicate-form').reset();
   showError('#detail-error');
+  showError('#detail-notice');
   if (!detail.open) detail.showModal();
   try {
     const report = await api(`reports/${id}`);
@@ -212,12 +221,88 @@ async function openReport(id) {
   }
 }
 
+function closeEditor() {
+  editForm.hidden = true;
+  $('#detail-edit').setAttribute('aria-expanded', 'false');
+}
+
+function updateDestinations() {
+  const { editor, stage } = state.detail;
+  const selected = $('#edit-assignee').value;
+  const person = editor.people.find(({ value }) => value === selected);
+  const canDiscord = editor.canSend && person?.discord;
+  const canLinear = editor.canSend && $('#edit-kind').value !== 'review' && (!selected || person?.linear);
+  const destination = $('#edit-destination');
+  destination.querySelector('[value="discord"]').disabled = !canDiscord;
+  destination.querySelector('[value="linear"]').disabled = !canLinear;
+  destination.querySelector('[value="both"]').disabled = !(canDiscord && canLinear);
+  if (destination.selectedOptions[0]?.disabled) destination.value = 'save';
+  const sending = destination.value !== 'save';
+  $('#edit-save').textContent = sending ? 'Save and send' : 'Save changes';
+  $('#edit-summary').required = sending;
+  const hint = sending && destination.value !== 'discord' && state.detail.linear_identifier
+    ? 'Saving will update the linked Linear issue.'
+    : !sending && ['classify', 'linear'].includes(stage)
+      ? 'Saving here takes this report out of automatic triage and delivery.'
+      : '';
+  const missing = editor.canSend && person
+    ? [!person.discord && 'a Discord channel', !person.linear && 'a Linear user'].filter(Boolean)
+    : [];
+  const setupHint = missing.length ? `${person.label} needs ${missing.join(' and ')} configured for those delivery options.` : '';
+  showError('#edit-hint', [hint, setupHint].filter(Boolean).join(' '));
+}
+
+function openEditor() {
+  const report = state.detail;
+  const owner = $('#edit-assignee');
+  owner.replaceChildren(new Option('Unassigned', ''), ...report.editor.people.map(({ label, value }) => new Option(label, value)));
+  owner.value = report.editor.owner ?? '';
+  $('#edit-title').value = report.title ?? report.message.replace(/\s+/g, ' ').trim().slice(0, 120);
+  $('#edit-summary').value = report.summary ?? '';
+  $('#edit-message').value = report.message;
+  $('#edit-category').value = report.category;
+  const kind = $('#edit-kind');
+  kind.querySelector('[value="review"]').hidden = report.kind !== 'review';
+  kind.value = report.kind ?? (['bug', 'feature'].includes(report.category) ? report.category : 'other');
+  $('#edit-area').value = report.area ?? '';
+  $('#edit-priority').value = report.priority ?? '';
+  $('#edit-impact').value = report.impact ?? '';
+  $('#edit-status').value = report.status;
+  $('#edit-destination').value = 'save';
+  updateDestinations();
+  showError('#detail-error');
+  showError('#detail-notice');
+  editForm.hidden = false;
+  $('#detail-edit').setAttribute('aria-expanded', 'true');
+  $('#edit-title').focus();
+}
+
+function watchDeliveries(report, pending) {
+  clearTimeout(state.deliveryTimer);
+  if (!pending) return;
+  state.deliveryTimer = setTimeout(async () => {
+    if (!detail.open || state.detail !== report) return;
+    try {
+      const updated = await api(`reports/${report.id}`);
+      if (!detail.open || state.detail !== report) return;
+      renderDetail(updated);
+      if (!updated.editor?.deliveries.some(({ pending }) => pending)) {
+        const failed = updated.editor?.deliveries.some(({ error }) => error);
+        showError('#detail-notice', failed ? 'Delivery finished with an error. See the destination status above.' : 'Delivery complete.');
+        await refresh();
+      }
+    } catch (error) {
+      if (detail.open && state.detail === report) showError('#detail-error', error.message);
+    }
+  }, 2000);
+}
+
 function renderDetail(report) {
   state.detail = report;
   $('#detail-title').textContent = report.title ?? 'Feedback report';
   const meta = element('div', undefined, 'detail-meta');
   const classification = report.classification ?? report.kind ?? (report.stage ? 'pending' : report.category);
-  meta.append(sources[report.source], statusPill(report.status), kindPill(classification), date.format(report.created_at));
+  meta.append(sources[report.source], statusPill(report.status, report.review_state), kindPill(classification), date.format(report.created_at));
   const section = (label, content) => {
     const part = element('section', undefined, 'detail-section');
     const text = element('p', content);
@@ -228,22 +313,57 @@ function renderDetail(report) {
   const triage = report.triageLabels;
   const content = [meta];
   if (report.summary) content.push(section('Summary', report.summary));
-  if (triage?.decision) content.push(section(triage.decision, report.rationale));
+  if (triage?.decision && (!report.review_state || report.rationale !== report.review_reason)) {
+    content.push(section(triage.decision, report.rationale));
+  }
+  if (triage?.assignee) content.push(section(report.review_state && report.editor?.owner === 'ayman' ? 'Reviewer' : 'Assignee', triage.assignee));
+  if (report.requestedAssignee) content.push(section('Requested assignee', report.requestedAssignee));
+  if (report.review_state) content.push(section(reviewLabels[report.review_state], report.review_reason));
+  if (report.related) {
+    const related = section('Related report', report.related.title ?? ('Feedback #' + report.related.id));
+    const actions = element('div', undefined, 'duplicate-actions');
+    const open = element('button', 'Open feedback #' + report.related.id, 'outline');
+    open.addEventListener('click', () => openReport(report.related.id));
+    const relatedIssue = linearLink(report.related);
+    actions.append(open);
+    if (relatedIssue) actions.append(relatedIssue);
+    related.append(actions);
+    content.push(related);
+  }
   if (report.evidence) content.push(section('Evidence from the report', report.evidence));
   if (triage?.impact) content.push(section('Reported impact', triage.impact));
-  if (triage?.area && triage.priority) content.push(section('Routing and priority', `${triage.area} · ${triage.priority}`));
-  content.push(section('Original report', report.message));
+  if (triage?.area || triage?.priority) content.push(section('Routing and priority', [triage.area, triage.priority].filter(Boolean).join(' · ')));
+  content.push(section(report.original_message ? 'Report text' : 'Original report', report.message));
+  if (report.original_message && report.original_message !== report.message) {
+    const original = element('details', undefined, 'detail-section');
+    const text = element('p', report.original_message);
+    text.dir = 'auto';
+    original.append(element('summary', 'Original report'), text);
+    content.push(original);
+  }
   if (report.category) content.push(section('Submitted as', kinds[report.category] ?? report.category));
   const link = linearLink(report);
   if (link) content.push(link);
   else if (report.stage === 'linear') content.push(section('Linear', report.exhausted ? 'Delivery failed.' : 'Queued for delivery.'));
   else if (report.stage === 'classify') content.push(section('Classification', report.exhausted ? 'Needs staff review.' : 'Queued for classification.'));
   if (report.error) content.push(section('Processing error', report.error));
+  for (const { target, recipient, sent_at, pending, error } of report.editor?.deliveries ?? []) {
+    const status = pending ? (error ? 'Retrying · ' + error : 'Queued')
+      : sent_at ? 'Sent' : 'Failed · ' + error;
+    content.push(section(destinationLabels[target] + (recipient ? ' · ' + recipient : ''), status));
+  }
   $('#detail-body').replaceChildren(...content);
   $('#detail-status').textContent = report.status === 'open' ? 'Mark resolved' : 'Reopen report';
   $('#detail-status').hidden = false;
   $('#detail-retry').hidden = !report.canRetry;
-  $('#promote-form').hidden = !report.canPromote;
+  if (report.canConfirmDuplicate && $('#duplicate-form').hidden) {
+    $('#duplicate-related').value = report.related?.id ?? '';
+  }
+  $('#duplicate-form').hidden = !report.canConfirmDuplicate;
+  const pending = report.editor?.deliveries.some(({ pending }) => pending);
+  $('#detail-edit').hidden = !report.editor;
+  $('#detail-edit').disabled = Boolean(pending);
+  watchDeliveries(report, pending);
 }
 
 async function refresh() {
@@ -301,17 +421,38 @@ for (const id of ['#source-filter', '#kind-filter', '#status-filter']) {
 $('#previous').addEventListener('click', () => { state.page -= 1; reloadReports(); });
 $('#next').addEventListener('click', () => { state.page += 1; reloadReports(); });
 $('#detail-close').addEventListener('click', () => detail.close());
+detail.addEventListener('close', () => clearTimeout(state.deliveryTimer));
+$('#detail-edit').addEventListener('click', () => {
+  if (editForm.hidden) openEditor();
+  else closeEditor();
+});
+$('#edit-cancel').addEventListener('click', () => {
+  closeEditor();
+  $('#detail-edit').focus();
+});
+for (const selector of ['#edit-assignee', '#edit-kind', '#edit-destination']) {
+  $(selector).addEventListener('change', updateDestinations);
+}
 async function updateReport(data) {
   const { id } = state.detail;
-  const buttons = ['#detail-status', '#detail-retry', '#detail-promote'].map($);
+  const buttons = ['#detail-status', '#detail-retry', '#edit-save', '#detail-duplicate'].map($);
   for (const button of buttons) button.disabled = true;
   showError('#detail-error');
   try {
     const report = await api(`reports/${id}`, 'PATCH', data);
-    if (detail.open && state.detail?.id === id) renderDetail(report);
-    await refresh();
+    if (detail.open && state.detail?.id === id) {
+      if (data.action === 'edit') {
+        closeEditor();
+        showError('#detail-notice', data.destination === 'save' ? 'Changes saved.' : 'Queued for ' + destinationLabels[data.destination] + '.');
+      }
+      renderDetail(report);
+    }
+    void refresh();
   } catch (error) {
-    if (detail.open && state.detail?.id === id) showError('#detail-error', error.message);
+    if (detail.open && state.detail?.id === id) {
+      showError('#detail-error', error.message);
+      $('#detail-error').scrollIntoView({ block: 'nearest' });
+    }
   } finally {
     for (const button of buttons) button.disabled = false;
   }
@@ -321,10 +462,21 @@ $('#detail-status').addEventListener('click', () => {
   updateReport({ status: state.detail.status === 'open' ? 'resolved' : 'open' });
 });
 $('#detail-retry').addEventListener('click', () => updateReport({ action: 'retry' }));
-$('#promote-form').addEventListener('submit', (event) => {
+$('#duplicate-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  updateReport({ action: 'promote', summary: $('#promote-summary').value,
-    area: $('#promote-area').value, priority: $('#promote-priority').value });
+  updateReport({ action: 'confirm_duplicate', relatedId: $('#duplicate-related').valueAsNumber });
+});
+editForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const report = state.detail;
+  const message = $('#edit-message').value;
+  updateReport({
+    action: 'edit', version: report.editor.version, destination: $('#edit-destination').value,
+    title: $('#edit-title').value, summary: $('#edit-summary').value, category: $('#edit-category').value,
+    kind: $('#edit-kind').value, area: $('#edit-area').value, priority: $('#edit-priority').value, impact: $('#edit-impact').value,
+    assignee: $('#edit-assignee').value, ...(message !== report.message && { message }),
+    ...($('#edit-status').value !== report.status && { status: $('#edit-status').value }),
+  });
 });
 
 start().catch((error) => {

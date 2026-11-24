@@ -774,6 +774,8 @@ tbody tr:hover { background: color-mix(in srgb, var(--surface-raised) 60%, var(-
 .pill.supabase_bug, .pill.resolved { --tone: var(--success); }
 .pill.suggestion, .pill.feature { --tone: var(--accent-bright); }
 .pill.minor_bug, .pill.review, .pill.open { --tone: var(--warning); }
+.pill.possible_duplicate, .pill.needs_review { --tone: var(--warning); }
+.pill.confirmed_duplicate { --tone: var(--success); }
 .linear-link { color: var(--accent-bright); font-weight: 660; text-decoration: none; }
 .linear-link:hover { text-decoration: underline; }
 .empty { padding-block: 31px; color: var(--muted); white-space: normal; text-align: center; }
@@ -888,6 +890,8 @@ dialog::backdrop { background: #070613b5; }
 }
 
 .detail-head h2 { margin-block-start: 3px; font-size: 1.47rem; }
+.detail-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.detail-note { color: var(--muted); font-size: .85rem; }
 .detail-head p, .detail-meta { color: var(--muted); font-size: .85rem; }
 .detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-block: 13px; }
 
@@ -911,11 +915,15 @@ dialog::backdrop { background: #070613b5; }
 }
 
 .promote-form label { color: var(--muted); font-size: .85rem; font-weight: 610; }
-.promote-form textarea { width: 100%; padding: 8px; resize: vertical; }
+.promote-form textarea, #edit-form input { width: 100%; padding: 8px; }
+.promote-form textarea { resize: vertical; }
 .promote-fields { display: flex; flex-wrap: wrap; gap: 8px; }
 .promote-fields label { display: grid; flex: 1 1 150px; min-width: 0; gap: 4px; }
 .promote-fields select { width: 100%; min-width: 0; }
 .promote-form button { justify-self: start; }
+.duplicate-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.duplicate-actions input { width: 9rem; padding: 6px 8px; }
+.detail-section .duplicate-actions { margin-block-start: 8px; }
 .detail-actions { flex-wrap: wrap; justify-content: flex-end; margin-block-start: 14px; }
 
 @media (max-width: 1070px) {

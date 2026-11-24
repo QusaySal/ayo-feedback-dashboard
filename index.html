@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark" data-api-origin="https://6embwgkgqd.apps.bot-hosting.cloud">
+<html data-api-origin="https://6embwgkgqd.apps.bot-hosting.cloud" lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -108,7 +108,7 @@
                 <option value="bug">Bugs with unclear component</option>
               </optgroup>
             </select>
-            <select id="status-filter" aria-label="Status"><option value="">All statuses</option><option value="open">Open</option><option value="resolved">Resolved</option></select>
+            <select id="status-filter" aria-label="Status"><option value="">All statuses</option><option value="open">Open</option><option value="resolved">Resolved</option><option value="ayman_review">Ayman review</option></select>
           </div>
           <div class="table-wrap">
             <table><thead><tr><th scope="col">Report</th><th scope="col">Source</th><th scope="col">Classification</th><th scope="col">Status</th><th scope="col">Linear</th><th scope="col">Received</th></tr></thead><tbody id="reports"></tbody></table>
@@ -119,21 +119,72 @@
     </main>
   </div>
   <dialog id="detail" aria-labelledby="detail-title">
-    <header class="detail-head"><div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2></div><button class="outline" id="detail-close" aria-label="Close report">×</button></header>
+    <header class="detail-head">
+      <div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2></div>
+      <div class="detail-head-actions">
+        <button class="outline" id="detail-edit" aria-controls="edit-form" aria-expanded="false" hidden>Edit report</button>
+        <button class="outline" id="detail-close" aria-label="Close report">×</button>
+      </div>
+    </header>
     <div id="detail-body"></div>
-    <form id="promote-form" class="promote-form" hidden>
-      <label for="promote-summary">Describe the failure and add any staff findings</label>
-      <textarea id="promote-summary" required maxlength="700" rows="3" dir="auto"></textarea>
+    <form id="duplicate-form" class="promote-form" hidden>
+      <label for="duplicate-related">Existing feedback number</label>
+      <div class="duplicate-actions">
+        <input id="duplicate-related" type="number" min="1" step="1" inputmode="numeric" required>
+        <button id="detail-duplicate" class="outline">Confirm duplicate</button>
+      </div>
+    </form>
+    <form id="edit-form" class="promote-form" hidden>
+      <label for="edit-title">Title</label>
+      <input id="edit-title" maxlength="120" dir="auto" required>
+      <label for="edit-summary">Summary for Discord and Linear</label>
+      <textarea id="edit-summary" maxlength="700" rows="3" dir="auto"></textarea>
+      <label for="edit-message">Report text</label>
+      <textarea id="edit-message" rows="4" dir="auto" required></textarea>
       <div class="promote-fields">
-        <label for="promote-area">Area
-          <select id="promote-area"><option value="qa">QA triage</option><option value="desktop">Desktop app</option><option value="backend">Backend/Supabase</option><option value="billing">Billing/account</option></select>
+        <label for="edit-category">Submitted category
+          <input id="edit-category" maxlength="80" required>
         </label>
-        <label for="promote-priority">Priority
-          <select id="promote-priority"><option value="medium">Medium</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent (staff-confirmed outage or data loss)</option></select>
+        <label for="edit-kind">Classification
+          <select id="edit-kind">
+            <option value="app_bug">App bug</option><option value="supabase_bug">Supabase bug</option>
+            <option value="bug">Bug · component unclear</option><option value="feature">Suggestion</option>
+            <option value="feedback">General feedback</option><option value="other">Other</option><option value="review">Needs review</option>
+          </select>
+        </label>
+        <label for="edit-area">Area
+          <select id="edit-area"><option value="">No area</option><option value="qa">QA triage</option><option value="desktop">Desktop app</option><option value="backend">Backend/Supabase</option><option value="billing">Billing/account</option></select>
+        </label>
+        <label for="edit-priority">Priority
+          <select id="edit-priority"><option value="">No priority</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="urgent">Urgent (staff-confirmed outage or data loss)</option></select>
+        </label>
+        <label for="edit-impact">Reported impact
+          <select id="edit-impact">
+            <option value="">No impact selected</option><option value="widespread_outage">Reported widespread outage</option>
+            <option value="ongoing_data_loss">Reported ongoing data loss</option><option value="core_flow_blocked">Core flow blocked</option>
+            <option value="limited">Limited impact or workaround</option><option value="cosmetic">Cosmetic or minor defect</option>
+          </select>
+        </label>
+        <label for="edit-status">Inbox status
+          <select id="edit-status"><option value="open">Open</option><option value="resolved">Resolved</option></select>
+        </label>
+        <label for="edit-assignee">Assignee
+          <select id="edit-assignee"><option value="">Unassigned</option></select>
+        </label>
+        <label for="edit-destination">Delivery
+          <select id="edit-destination">
+            <option value="save">Dashboard only</option><option value="discord">Discord</option>
+            <option value="linear">Linear</option><option value="both">Discord and Linear</option>
+          </select>
         </label>
       </div>
-      <button id="detail-promote" class="primary">Promote to issue</button>
+      <p id="edit-hint" class="detail-note" hidden></p>
+      <div class="duplicate-actions">
+        <button id="edit-save" class="primary">Save changes</button>
+        <button id="edit-cancel" class="outline" type="button">Cancel</button>
+      </div>
     </form>
+    <p id="detail-notice" class="detail-note" role="status" hidden></p>
     <footer class="detail-actions"><p id="detail-error" class="error" role="alert" hidden></p><button id="detail-retry" class="outline" hidden>Retry processing</button><button id="detail-status" class="primary" hidden></button></footer>
   </dialog>
 </body>
