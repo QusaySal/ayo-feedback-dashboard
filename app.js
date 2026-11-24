@@ -343,7 +343,8 @@ function openEditor() {
   $('#edit-category').value = report.category;
   const kind = $('#edit-kind');
   kind.querySelector('[value="review"]').hidden = report.kind !== 'review';
-  kind.value = report.kind ?? (['bug', 'feature'].includes(report.category) ? report.category : 'other');
+  const submittedKind = report.category?.trim().toLowerCase();
+  kind.value = report.kind ?? (['app_bug', 'supabase_bug', 'bug', 'feature', 'feedback'].includes(submittedKind) ? submittedKind : 'other');
   $('#edit-area').value = report.area ?? '';
   $('#edit-priority').value = report.priority ?? '';
   $('#edit-impact').value = report.impact ?? '';
