@@ -231,7 +231,7 @@ function updateDestinations() {
   const selected = $('#edit-assignee').value;
   const person = editor.people.find(({ value }) => value === selected);
   const canDiscord = editor.canSend && person?.discord;
-  const canLinear = editor.canSend && $('#edit-kind').value !== 'review' && (!selected || person?.linear);
+  const canLinear = editor.canSend && editor.canSendLinear !== false && $('#edit-kind').value !== 'review' && (!selected || person?.linear);
   const destination = $('#edit-destination');
   destination.querySelector('[value="discord"]').disabled = !canDiscord;
   destination.querySelector('[value="linear"]').disabled = !canLinear;
@@ -248,7 +248,9 @@ function updateDestinations() {
   const missing = editor.canSend && person
     ? [!person.discord && 'a Discord channel', !person.linear && 'a Linear user'].filter(Boolean)
     : [];
-  const setupHint = missing.length ? `${person.label} needs ${missing.join(' and ')} configured for those delivery options.` : '';
+  const setupHint = editor.canSend && editor.canSendLinear === false
+    ? 'Configure Linear on the bot host to enable ticket delivery.'
+    : missing.length ? `${person.label} needs ${missing.join(' and ')} configured for those delivery options.` : '';
   showError('#edit-hint', [hint, setupHint].filter(Boolean).join(' '));
 }
 
