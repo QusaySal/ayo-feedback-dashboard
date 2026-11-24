@@ -915,12 +915,40 @@ dialog::backdrop { background: #070613b5; }
 }
 
 .promote-form label { color: var(--muted); font-size: .85rem; font-weight: 610; }
-.promote-form textarea, #edit-form input { width: 100%; padding: 8px; }
+.promote-form textarea, #edit-form input:not([type="checkbox"]) { width: 100%; padding: 8px; }
 .promote-form textarea { resize: vertical; }
 .promote-fields { display: flex; flex-wrap: wrap; gap: 8px; }
 .promote-fields label { display: grid; flex: 1 1 150px; min-width: 0; gap: 4px; }
 .promote-fields select { width: 100%; min-width: 0; }
 .promote-form button { justify-self: start; }
+.linear-labels { display: flex; flex-wrap: wrap; gap: 6px; margin-block-start: 8px; }
+.linear-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  background: var(--control);
+  font-size: .8rem;
+}
+.linear-label-dot { flex: 0 0 12px; width: 12px; height: 12px; border-radius: 50%; }
+.linear-label-picker { min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 9px; }
+.linear-label-picker legend { padding-inline: 5px; color: var(--muted); font-size: .85rem; font-weight: 610; }
+.linear-label-options { max-height: 252px; margin-block-start: 6px; overflow-y: auto; }
+.promote-form .linear-label-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  min-height: 36px;
+  border-radius: 6px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.linear-label-choice:hover, .linear-label-choice:focus-within { background: var(--control); }
+.linear-label-choice input { margin-inline-start: auto; accent-color: var(--accent); }
+.linear-label-picker .detail-note { padding: 6px 3px; }
 .duplicate-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .duplicate-actions input { width: 9rem; padding: 6px 8px; }
 .detail-section .duplicate-actions { margin-block-start: 8px; }

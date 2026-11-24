@@ -120,7 +120,7 @@
   </div>
   <dialog id="detail" aria-labelledby="detail-title">
     <header class="detail-head">
-      <div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2></div>
+      <div><p id="detail-id"></p><h2 id="detail-title">Feedback report</h2><div id="detail-labels" class="linear-labels" hidden></div></div>
       <div class="detail-head-actions">
         <button class="outline" id="detail-edit" aria-controls="edit-form" aria-expanded="false" hidden>Edit report</button>
         <button class="outline" id="detail-close" aria-label="Close report">×</button>
@@ -178,6 +178,12 @@
           </select>
         </label>
       </div>
+      <fieldset id="edit-labels" class="linear-label-picker" hidden>
+        <legend>Linear labels</legend>
+        <input id="label-search" type="search" aria-label="Find a Linear label" placeholder="Find a label…" disabled>
+        <div id="label-options" class="linear-label-options"></div>
+        <p id="label-status" class="detail-note" role="status" hidden></p>
+      </fieldset>
       <p id="edit-hint" class="detail-note" hidden></p>
       <div class="duplicate-actions">
         <button id="edit-save" class="primary">Save changes</button>

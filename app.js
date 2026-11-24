@@ -15,7 +15,8 @@ const views = {
 };
 const day = new Intl.DateTimeFormat(undefined, { weekday: 'short', timeZone: 'UTC' });
 const date = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-const state = { view: 'overview', page: 1, detail: null, request: 0, filterTimer: null, deliveryTimer: null };
+const state = { view: 'overview', page: 1, detail: null, request: 0, filterTimer: null, deliveryTimer: null,
+  labelRequest: 0, linearLabels: null, labelError: null, editedLabels: null };
 const detail = $('#detail');
 const editForm = $('#edit-form');
 const destinationLabels = { discord: 'Discord', linear: 'Linear', both: 'Discord and Linear' };
@@ -198,10 +199,16 @@ function setView(view, source = '') {
 
 async function openReport(id) {
   clearTimeout(state.deliveryTimer);
+  const labelRequest = ++state.labelRequest;
+  state.linearLabels = null;
+  state.labelError = null;
+  state.editedLabels = null;
   state.detail = null;
   $('#detail-id').textContent = `Feedback #${id}`;
   $('#detail-title').textContent = 'Feedback report';
   $('#detail-body').textContent = 'Loading report…';
+  $('#detail-labels').replaceChildren();
+  $('#detail-labels').hidden = true;
   $('#detail-status').hidden = true;
   $('#detail-retry').hidden = true;
   $('#detail-edit').hidden = true;
@@ -215,6 +222,7 @@ async function openReport(id) {
     const report = await api(`reports/${id}`);
     if (!detail.open || $('#detail-id').textContent !== `Feedback #${id}`) return;
     renderDetail(report);
+    if (report.editor?.canEditLabels) void loadLinearLabels(id, labelRequest);
   } catch (error) {
     $('#detail-body').textContent = '';
     showError('#detail-error', error.message);
@@ -224,6 +232,74 @@ async function openReport(id) {
 function closeEditor() {
   editForm.hidden = true;
   $('#detail-edit').setAttribute('aria-expanded', 'false');
+}
+
+function selectedLabelIds(kind) {
+  const { linearLabels, detail: report } = state;
+  const defaultId = linearLabels?.defaultLabelIds[kind];
+  return report.editor?.labelIds ?? linearLabels?.selectedIds ?? (defaultId ? [defaultId] : []);
+}
+
+function labelDot(color) {
+  const dot = element('span', undefined, 'linear-label-dot');
+  dot.style.backgroundColor = color;
+  dot.setAttribute('aria-hidden', 'true');
+  return dot;
+}
+
+function renderLabelBadges(report) {
+  const badges = $('#detail-labels');
+  const kind = report.kind ?? report.category;
+  const ids = selectedLabelIds(kind);
+  const labels = state.linearLabels?.labels.filter(({ id }) => ids.includes(id)) ?? [];
+  badges.replaceChildren(...labels.map(({ name, color }) => {
+    const badge = element('span', undefined, 'linear-label');
+    badge.append(labelDot(color), name);
+    return badge;
+  }));
+  badges.hidden = labels.length === 0;
+}
+
+function filterLabelChoices() {
+  const search = $('#label-search');
+  const query = search.value.trim().toLowerCase();
+  const choices = [...$('#label-options').children];
+  for (const choice of choices) choice.hidden = !choice.dataset.labelName.toLowerCase().includes(query);
+  if (!search.disabled) showError('#label-status', choices.some((choice) => !choice.hidden) ? '' : 'No matching labels.');
+}
+
+function renderLabelChoices() {
+  $('#edit-labels').hidden = !state.detail.editor?.canEditLabels;
+  const labels = state.linearLabels?.labels ?? [];
+  const search = $('#label-search');
+  search.disabled = labels.length === 0;
+  const kind = $('#edit-kind').value;
+  const ids = state.editedLabels ?? selectedLabelIds(kind);
+  $('#label-options').replaceChildren(...labels.map(({ id, color, name }) => {
+    const choice = element('label', undefined, 'linear-label-choice');
+    const checkbox = element('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = id;
+    checkbox.checked = ids.includes(id);
+    choice.dataset.labelName = name;
+    choice.append(labelDot(color), element('span', name), checkbox);
+    return choice;
+  }));
+  showError('#label-status', state.labelError ?? (!state.linearLabels ? 'Loading labels…' : labels.length ? '' : 'No matching Linear labels are available.'));
+  filterLabelChoices();
+}
+
+async function loadLinearLabels(id, request) {
+  try {
+    const labels = await api(`reports/${id}/labels`);
+    if (!detail.open || request !== state.labelRequest) return;
+    state.linearLabels = labels;
+  } catch (error) {
+    if (!detail.open || request !== state.labelRequest) return;
+    state.labelError = error.message;
+  }
+  renderLabelBadges(state.detail);
+  if (!editForm.hidden) renderLabelChoices();
 }
 
 function updateDestinations() {
@@ -256,6 +332,8 @@ function updateDestinations() {
 
 function openEditor() {
   const report = state.detail;
+  state.editedLabels = null;
+  $('#label-search').value = '';
   const owner = $('#edit-assignee');
   owner.replaceChildren(new Option('Unassigned', ''), ...report.editor.people.map(({ label, value }) => new Option(label, value)));
   owner.value = report.editor.owner ?? '';
@@ -272,6 +350,7 @@ function openEditor() {
   $('#edit-status').value = report.status;
   $('#edit-destination').value = 'save';
   updateDestinations();
+  renderLabelChoices();
   showError('#detail-error');
   showError('#detail-notice');
   editForm.hidden = false;
@@ -302,6 +381,7 @@ function watchDeliveries(report, pending) {
 function renderDetail(report) {
   state.detail = report;
   $('#detail-title').textContent = report.title ?? 'Feedback report';
+  renderLabelBadges(report);
   const meta = element('div', undefined, 'detail-meta');
   const classification = report.classification ?? report.kind ?? (report.stage ? 'pending' : report.category);
   meta.append(sources[report.source], statusPill(report.status, report.review_state), kindPill(classification), date.format(report.created_at));
@@ -435,6 +515,13 @@ $('#edit-cancel').addEventListener('click', () => {
 for (const selector of ['#edit-assignee', '#edit-kind', '#edit-destination']) {
   $(selector).addEventListener('change', updateDestinations);
 }
+$('#edit-kind').addEventListener('change', renderLabelChoices);
+$('#label-search').addEventListener('input', filterLabelChoices);
+$('#label-options').addEventListener('change', () => {
+  const ids = [...$('#label-options').querySelectorAll('input:checked')].map(({ value }) => value);
+  const original = selectedLabelIds($('#edit-kind').value);
+  state.editedLabels = ids.length === original.length && ids.every((id) => original.includes(id)) ? null : ids;
+});
 async function updateReport(data) {
   const { id } = state.detail;
   const buttons = ['#detail-status', '#detail-retry', '#edit-save', '#detail-duplicate'].map($);
@@ -478,6 +565,7 @@ editForm.addEventListener('submit', (event) => {
     kind: $('#edit-kind').value, area: $('#edit-area').value, priority: $('#edit-priority').value, impact: $('#edit-impact').value,
     assignee: $('#edit-assignee').value, ...(message !== report.message && { message }),
     ...($('#edit-status').value !== report.status && { status: $('#edit-status').value }),
+    ...(state.editedLabels !== null && { labelIds: state.editedLabels }),
   });
 });
 
