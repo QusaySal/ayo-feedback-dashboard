@@ -12,13 +12,15 @@
   <main class="sign-in" id="sign-in" hidden>
     <header class="sign-in-top">
       <div class="brand"><span class="brand-mark">AYO</span><span>Feedback</span></div>
-      <label class="theme-control">
-        <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
-        <select data-theme-picker aria-label="Color theme">
-          <option value="dark">Nebula</option><option value="light">Pearl</option>
-          <option value="grey">Grey</option><option value="aero">Frutiger Aero</option>
-        </select>
-      </label>
+      <details class="theme-control" data-theme-picker>
+        <summary>
+          <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
+          <strong data-theme-name>Nebula</strong>
+        </summary>
+        <div class="theme-menu">
+          <fieldset><legend>Color theme</legend><div class="theme-options" data-theme-options></div></fieldset>
+        </div>
+      </details>
     </header>
     <div class="sign-in-layout">
       <section class="sign-in-intro" aria-labelledby="sign-in-title">
@@ -51,13 +53,15 @@
         <span class="breadcrumb">Workspace <span class="separator">/</span> <strong id="breadcrumb">Overview</strong></span>
         <div class="topbar-actions">
           <span id="mode" class="mode"><i aria-hidden="true"></i><span>Live workspace</span></span>
-          <label class="theme-control">
-            <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
-            <select data-theme-picker aria-label="Color theme">
-              <option value="dark">Nebula</option><option value="light">Pearl</option>
-              <option value="grey">Grey</option><option value="aero">Frutiger Aero</option>
-            </select>
-          </label>
+          <details class="theme-control" data-theme-picker>
+            <summary>
+              <span class="theme-swatch" aria-hidden="true"></span><span>Theme</span>
+              <strong data-theme-name>Nebula</strong>
+            </summary>
+            <div class="theme-menu">
+              <fieldset><legend>Color theme</legend><div class="theme-options" data-theme-options></div></fieldset>
+            </div>
+          </details>
         </div>
       </header>
       <div class="content">
